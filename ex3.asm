@@ -18,82 +18,24 @@ INCLUDE ex3_data.inc
 	rearrangedBoard BYTE LENGTHOF board DUP(?)		;a copy of the given board, rearanged by stepping order
 	currRow BYTE 0									;the current row being copied
 	lastCellOnBoard DWORD ?							;the address of the last cell on the board
-
+	moveseries SBYTE ?
 .code
 	myMain PROC
 	;Print my name
 	mov edx, OFFSET myName
 	call writestring
 
-	;======================  sort and copy the given board in a to a new place in memory (rearangedBoad) ======================
-	mov esi, OFFSET board
-	mov edi, OFFSET rearrangedBoard
+	mov eax, OFFSET board		
+	push eax
+	movzx eax, numrows
+	push eax
+	movzx eax, numcols
+	push eax
+	call checkboard
+	cmp eax, -1
+	je invalidBoard
 
-	;set esi to the bottom left cell
-	add esi, SIZEOF board	
-	movsx ebx, BYTE PTR numCols			;if we want this to be generic we can multiply this value by 'TYPE board' (here its 1 so there is no need)
-	sub esi, ebx
-
-;main loop - each itteration copies a single row from board to rearrangedBoard
-nextRow:
-	;compare curr to board, if curr < board then finished copying
-	; (*) it doesn't matter if the last row is even or odd, in both cases the first cell is not less than 'OFFSET board'
-	cmp esi, OFFSET board
-	jl endOfCopy
-
-	;check parity 
-	movsx eax, currRow
-	and eax, 1
-	cmp eax, 1			;(eax = 1 => odd row number)
-	je copyOddRow
-	jne copyEvenRow
-
-copyOddRow:
-	;jump to the end of the row to copy backwards
-	movsx eax, BYTE PTR numCols
-	add esi, eax
-	dec esi
-
-	movsx ecx, BYTE PTR numCols
-	; cells are copied one by one because we don't know in advance the value of numCols
-	copyCell1:
-		mov al, BYTE PTR [esi]
-		mov [edi], al
-		inc edi
-		dec esi
-		loop copyCell1
-
-	;set esi to the beginning of the row above
-	movsx eax, BYTE PTR numCols
-	sub esi, eax
-	inc esi
-	inc currRow
-	jmp nextRow
-
-copyEvenRow:
-	movsx ecx, BYTE PTR numCols
-	copyCell2:
-		mov al, BYTE PTR [esi]
-		mov [edi], al
-		inc edi
-		inc esi
-		loop copyCell2
-
-	;set esi to the beginning of the row above
-	movsx eax, BYTE PTR numCols
-	sub esi, eax
-	sub esi, eax
-	inc currRow
-	jmp nextRow
-
-endOfCopy:
-	;set lastCellOnBoard to be the address of the last cell
-	mov eax, OFFSET rearrangedBoard
-	add eax, SIZEOF rearrangedBoard
-	sub eax, TYPE rearrangedBoard
-	mov lastCellOnBoard, eax
-	;============================================ copying of board finished ============================================
-
+	call copyAndRearangeBoard	
 	;============================================ start making moves on the board ============================================
 	;initialize the game
 	mov esi, OFFSET rearrangedBoard
@@ -199,6 +141,9 @@ checkCurrCell:
 		mov score, 4
 		jmp gameEnded
 
+	invalidBoard:
+		mov score, -1
+		mov moveseries, -1
 	;============================================ end of game - print results ============================================
 	gameEnded:
 		;print gameFin
@@ -224,5 +169,149 @@ checkCurrCell:
 
 	exit
 myMain ENDP
+
+copyAndRearangeBoard PROC	
+	PUSHAD	
+	mov esi, OFFSET board
+	mov edi, OFFSET rearrangedBoard
+
+	;set esi to the bottom left cell
+	add esi, SIZEOF board	
+	movsx ebx, BYTE PTR numCols			;if we want this to be generic we can multiply this value by 'TYPE board' (here its 1 so there is no need)
+	sub esi, ebx
+
+	;main loop - each itteration copies a single row from board to rearrangedBoard
+	nextRow:
+		;compare curr to board, if curr < board then finished copying
+		; (*) it doesn't matter if the last row is even or odd, in both cases the first cell is not less than 'OFFSET board'
+		cmp esi, OFFSET board
+		jl endOfCopy
+
+		;check parity 
+		movsx eax, currRow
+		and eax, 1
+		cmp eax, 1			;(eax = 1 => odd row number)
+		je copyOddRow
+		jne copyEvenRow
+
+	copyOddRow:
+		;jump to the end of the row to copy backwards
+		movsx eax, BYTE PTR numCols
+		add esi, eax
+		dec esi
+
+		movsx ecx, BYTE PTR numCols
+		; cells are copied one by one because we don't know in advance the value of numCols
+		copyCell1:
+			mov al, BYTE PTR [esi]
+			mov [edi], al
+			inc edi
+			dec esi
+			loop copyCell1
+
+		;set esi to the beginning of the row above
+		movsx eax, BYTE PTR numCols
+		sub esi, eax
+		inc esi
+		inc currRow
+		jmp nextRow
+
+	copyEvenRow:
+		movsx ecx, BYTE PTR numCols
+		copyCell2:
+			mov al, BYTE PTR [esi]
+			mov [edi], al
+			inc edi
+			inc esi
+			loop copyCell2
+
+		;set esi to the beginning of the row above
+		movsx eax, BYTE PTR numCols
+		sub esi, eax
+		sub esi, eax
+		inc currRow
+		jmp nextRow
+
+	endOfCopy:
+		;set lastCellOnBoard to be the address of the last cell
+		mov eax, OFFSET rearrangedBoard
+		add eax, SIZEOF rearrangedBoard
+		sub eax, TYPE rearrangedBoard
+		mov lastCellOnBoard, eax
+	
+	POPAD
+	ret
+copyAndRearangeBoard ENDP
+
+; original board is transfered, board is checked from last row to the first
+checkboard PROC
+	i_NumCols = 8
+	i_NumRows = i_NumCols + 4
+	BoardPtr = i_NumRows + 4
+	
+	push ebp
+	mov ebp, esp
+	push esi
+	push ebx
+	push ecx
+
+	mov esi, [ebp + BoardPtr]
+	mov ecx, [ebp + i_NumRows]
+checkRows:
+	mov ebx, ecx
+	mov ecx, [ebp + i_NumCols]
+	checkCols:
+		push esi
+		push [ebp + BoardPtr]
+		call checkCell
+		nextCol:
+			inc esi
+			LOOP checkCols
+	mov ecx, ebx
+	LOOP checkRows
+
+checkLastRowForE:
+	cmp [esi], byte PTR 'E'
+	je invalidBoard
+	inc	esi
+	LOOP checkLastRowForE
+
+checkFirstRowForS:
+	mov esi, [ebp + BoardPtr]
+
+	add esi, [ebp + i_NumRows]
+	mov ebx, [ebp + i_NumRows]
+	
+
+	cmp [esi], byte PTR 'S'
+	je checkEUnderS
+
+checkEUnderS:
+	mov ebx, [ebp + i_NumCols];
+	cmp [esi + ebx], byte PTR 'E'
+	je invalidBoard
+
+invalidBoard:
+	mov eax, -1
+
+endOfProc:
+	pop ecx
+	pop ebx
+	pop esi
+	mov esp, ebp
+	pop ebp
+	ret 12
+checkboard ENDP
+
+; parmeters (cell address, first cell address, last cell address)
+checkCell PROC
+	
+	ret
+checkCell ENDP
+
+nextmove PROC
+
+	ret
+nextmove ENDP
 
 END myMain

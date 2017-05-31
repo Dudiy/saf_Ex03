@@ -1,11 +1,11 @@
-Microsoft (R) Macro Assembler Version 14.10.25019.0	    05/31/17 09:31:34
+Microsoft (R) Macro Assembler Version 14.10.25019.0	    05/31/17 14:07:48
 ex							     Page 1 - 1
 
 
 				; file: ex3.asm
 				; Dudi Yecheskel , ID 200441749
 
-				TITLE ex2
+				TITLE ex3
 				; This program simulates a board game as described in the instructions
 
 				INCLUDE Irvine32.inc
@@ -33,16 +33,15 @@ Microsoft (R) Macro Assembler Version 14.10.25019.0	    05/31/17 09:31:34
  00000000		      C .data
  00000000 04		      C 	numrows	BYTE 4
  00000001 04		      C 	numcols BYTE 4
- 00000002 03 17 0E 45 13      C 	board	BYTE 3, 23, 14, 'E',
-	   53 45 0C 09 53
+ 00000002 03 17 0E 53 13      C 	board	BYTE 3, 23, 14, 'S',
+	   53 45 45 09 53
 	   21 11 01 0A 45
 	   05
-			      C 				 19, 'S', 'E', 12,
+			      C 				 19, 'S', 'E', 'E',
 			      C 				 9, 'S', 33, 17,
-			      C 				 1, 10, 'E', 5
- 00000012 05 04 06 03 02      C 	moves BYTE 5, 4, 6, 3, 2, ';'
-	   3B
-			      C 	;moves BYTE 5, 5, 4, 2, ';'
+			      C 				 1, 10, 'E', 5	
+ 00000012 05 05 04 02 3B      C 	moves BYTE 5, 5, 4, 2, ';'
+ 00000017 05		      C 	nomoves BYTE 5
 			      C 
 
  00000018			.data
@@ -67,237 +66,313 @@ Microsoft (R) Macro Assembler Version 14.10.25019.0	    05/31/17 09:31:34
 	   ]
  0000006E 00				currRow BYTE 0									;the current row being copied
  0000006F 00000000			lastCellOnBoard DWORD ?							;the address of the last cell on the board
-
+ 00000073 00				moveseries SBYTE ?
  00000000			.code
  00000000				myMain PROC
 					;Print my name
  00000000  BA 00000018 R		mov edx, OFFSET myName
  00000005  E8 00000000 E		call writestring
 
-					;======================  sort and copy the given board in a to a new place in memory (rearangedBoad) ======================
- 0000000A  BE 00000002 R		mov esi, OFFSET board
- 0000000F  BF 0000005E R		mov edi, OFFSET rearrangedBoard
-
-					;set esi to the bottom left cell
- 00000014  83 C6 10			add esi, SIZEOF board	
- 00000017  0F BE 1D			movsx ebx, BYTE PTR numCols			;if we want this to be generic we can multiply this value by 'TYPE board' (here its 1 so there is no need)
+ 0000000A  B8 00000002 R		mov eax, OFFSET board		
+ 0000000F  50				push eax
+ 00000010  0F B6 05			movzx eax, numrows
+	   00000000 R
+ 00000017  50				push eax
+ 00000018  0F B6 05			movzx eax, numcols
 	   00000001 R
- 0000001E  2B F3			sub esi, ebx
+ 0000001F  50				push eax
+ 00000020  E8 000001E9			call checkboard
+ 00000025  83 F8 FF			cmp eax, -1
+ 00000028  0F 84 000000EA		je invalidBoard
 
-				;main loop - each itteration copies a single row from board to rearrangedBoard
- 00000020			nextRow:
-					;compare curr to board, if curr < board then finished copying
-					; (*) it doesn't matter if the last row is even or odd, in both cases the first cell is not less than 'OFFSET board'
- 00000020  81 FE 00000002 R		cmp esi, OFFSET board
- 00000026  7C 5E			jl endOfCopy
-
-					;check parity 
- 00000028  0F BE 05			movsx eax, currRow
-	   0000006E R
- 0000002F  83 E0 01			and eax, 1
- 00000032  83 F8 01			cmp eax, 1			;(eax = 1 => odd row number)
- 00000035  74 02			je copyOddRow
- 00000037  75 2B			jne copyEvenRow
-
- 00000039			copyOddRow:
-					;jump to the end of the row to copy backwards
- 00000039  0F BE 05			movsx eax, BYTE PTR numCols
-	   00000001 R
- 00000040  03 F0			add esi, eax
- 00000042  4E				dec esi
-
- 00000043  0F BE 0D			movsx ecx, BYTE PTR numCols
-	   00000001 R
-					; cells are copied one by one because we don't know in advance the value of numCols
- 0000004A				copyCell1:
- 0000004A  8A 06				mov al, BYTE PTR [esi]
- 0000004C  88 07				mov [edi], al
- 0000004E  47					inc edi
- 0000004F  4E					dec esi
- 00000050  E2 F8				loop copyCell1
-
-					;set esi to the beginning of the row above
- 00000052  0F BE 05			movsx eax, BYTE PTR numCols
-	   00000001 R
- 00000059  2B F0			sub esi, eax
- 0000005B  46				inc esi
- 0000005C  FE 05 0000006E R		inc currRow
- 00000062  EB BC			jmp nextRow
-
- 00000064			copyEvenRow:
- 00000064  0F BE 0D			movsx ecx, BYTE PTR numCols
-	   00000001 R
- 0000006B				copyCell2:
- 0000006B  8A 06				mov al, BYTE PTR [esi]
- 0000006D  88 07				mov [edi], al
- 0000006F  47					inc edi
- 00000070  46					inc esi
- 00000071  E2 F8				loop copyCell2
-
-					;set esi to the beginning of the row above
- 00000073  0F BE 05			movsx eax, BYTE PTR numCols
-	   00000001 R
- 0000007A  2B F0			sub esi, eax
- 0000007C  2B F0			sub esi, eax
- 0000007E  FE 05 0000006E R		inc currRow
- 00000084  EB 9A			jmp nextRow
-
- 00000086			endOfCopy:
-					;set lastCellOnBoard to be the address of the last cell
- 00000086  B8 0000005E R		mov eax, OFFSET rearrangedBoard
- 0000008B  83 C0 10			add eax, SIZEOF rearrangedBoard
- 0000008E  83 E8 01			sub eax, TYPE rearrangedBoard
- 00000091  A3 0000006F R		mov lastCellOnBoard, eax
-					;============================================ copying of board finished ============================================
-
+ 0000002E  E8 0000014C			call copyAndRearangeBoard	
 					;============================================ start making moves on the board ============================================
 					;initialize the game
- 00000096  BE 0000005E R		mov esi, OFFSET rearrangedBoard
+ 00000033  BE 0000005E R		mov esi, OFFSET rearrangedBoard
 
- 0000009B			makeMove:
- 0000009B  0F BF 05			movsx eax, moveNum						;current move index - initialized to 0
+ 00000038			makeMove:
+ 00000038  0F BF 05			movsx eax, moveNum						;current move index - initialized to 0
 	   0000005C R
- 000000A2  0F BE 98			movsx ebx, BYTE PTR moves[eax] 			;get the current move value
+ 0000003F  0F BE 98			movsx ebx, BYTE PTR moves[eax] 			;get the current move value
 	   00000012 R
 
- 000000A9  83 FB 3B			cmp ebx, ';'							;if all moves done (reached ';') end game
- 000000AC  0F 84 00000088		je endOfMoves
+ 00000046  83 FB 3B			cmp ebx, ';'							;if all moves done (reached ';') end game
+ 00000049  0F 84 00000088		je endOfMoves
 					
- 000000B2  03 F3			add esi, ebx							;move esi position according to move value
- 000000B4  66| FF 05			inc moveNum								;increment move counter
+ 0000004F  03 F3			add esi, ebx							;move esi position according to move value
+ 00000051  66| FF 05			inc moveNum								;increment move counter
 	   0000005C R
- 000000BB  3B 35 0000006F R		cmp esi, lastCellOnBoard				;if passed the last cell on the board = error
- 000000C1  0F 8F 0000009C		jg passedLastCellOnBoard
+ 00000058  3B 35 0000006F R		cmp esi, lastCellOnBoard				;if passed the last cell on the board = error
+ 0000005E  0F 8F 0000009C		jg passedLastCellOnBoard
 
- 000000C7			checkCurrCell:
- 000000C7  80 3E 45			cmp BYTE PTR [esi], 'E'
- 000000CA  74 10			je E							;jump if the cell is 'E'
- 000000CC  80 3E 53			cmp BYTE PTR [esi], 'S'
- 000000CF  74 3E			je S							;jump if the cell is 'S'
+ 00000064			checkCurrCell:
+ 00000064  80 3E 45			cmp BYTE PTR [esi], 'E'
+ 00000067  74 10			je E							;jump if the cell is 'E'
+ 00000069  80 3E 53			cmp BYTE PTR [esi], 'S'
+ 0000006C  74 3E			je S							;jump if the cell is 'S'
 					
 					;if the current cell holds a digit add its value to score
- 000000D1				digit:
- 000000D1  0F BE 0E				movsx ecx, BYTE PTR [esi]	;add the value in current cell to score
- 000000D4  01 0D 0000004E R			add score, ecx
- 000000DA  EB BF				jmp makeMove				;else make another move
+ 0000006E				digit:
+ 0000006E  0F BE 0E				movsx ecx, BYTE PTR [esi]	;add the value in current cell to score
+ 00000071  01 0D 0000004E R			add score, ecx
+ 00000077  EB BF				jmp makeMove				;else make another move
 
 					;if the current cell is 'E' then move one row up and check the value of the cell again
 					;the number of moves to make in order to go up one row: ((numCols -(currCell % numCols)) * 2) + 1
- 000000DC				E:
+ 00000079				E:
 						;calculate: numCols - (currCell % numCols)
- 000000DC  BA 00000000				mov edx, 0
- 000000E1  8B C6				mov eax, esi
- 000000E3  2D 0000005E R			sub eax, OFFSET rearrangedBoard
- 000000E8  0F BE 1D				movsx ebx, numCols
+ 00000079  BA 00000000				mov edx, 0
+ 0000007E  8B C6				mov eax, esi
+ 00000080  2D 0000005E R			sub eax, OFFSET rearrangedBoard
+ 00000085  0F BE 1D				movsx ebx, numCols
 	   00000001 R
- 000000EF  F7 F3				div ebx
- 000000F1  0F BE 05				movsx eax, numCols
+ 0000008C  F7 F3				div ebx
+ 0000008E  0F BE 05				movsx eax, numCols
 	   00000001 R
- 000000F8  48					dec eax
- 000000F9  2B C2				sub eax, edx		;eax = numCols - (currCell % numCols)
+ 00000095  48					dec eax
+ 00000096  2B C2				sub eax, edx		;eax = numCols - (currCell % numCols)
 
 						;calculate ((numCols -(esi % numCols)) * 2) + 1
- 000000FB  BB 00000002				mov ebx, 2
- 00000100  F7 E3				mul ebx				;eax = ((numCols -(currCell % numCols)) * 2)
- 00000102  40					inc eax				;eax = ((numCols -(currCell % numCols)) * 2) + 1
+ 00000098  BB 00000002				mov ebx, 2
+ 0000009D  F7 E3				mul ebx				;eax = ((numCols -(currCell % numCols)) * 2)
+ 0000009F  40					inc eax				;eax = ((numCols -(currCell % numCols)) * 2) + 1
 						
- 00000103  03 F0				add esi, eax		;move esi to row above on the board
+ 000000A0  03 F0				add esi, eax		;move esi to row above on the board
 
 						;check if after "climbing" up we are above the board
- 00000105  3B 35 0000006F R			cmp esi, lastCellOnBoard
- 0000010B  7F 4A				jg foundEOnLastRow
- 0000010D  EB B8				jmp checkCurrCell
+ 000000A2  3B 35 0000006F R			cmp esi, lastCellOnBoard
+ 000000A8  7F 4A				jg foundEOnLastRow
+ 000000AA  EB B8				jmp checkCurrCell
 
 					;if the current cell is 'S' then down one row and check the value of the cell again
 					;the number of moves to make in order to go down one row: - ((currCell % numCols) * 2) + 1
- 0000010F				S:
+ 000000AC				S:
 						;calculate (currCell % numCols)
- 0000010F  BA 00000000				mov edx, 0
- 00000114  8B C6				mov eax, esi
- 00000116  2D 0000005E R			sub eax, OFFSET rearrangedBoard
- 0000011B  0F BE 1D				movsx ebx, numCols
+ 000000AC  BA 00000000				mov edx, 0
+ 000000B1  8B C6				mov eax, esi
+ 000000B3  2D 0000005E R			sub eax, OFFSET rearrangedBoard
+ 000000B8  0F BE 1D				movsx ebx, numCols
 	   00000001 R
- 00000122  F7 F3				div ebx
- 00000124  8B C2				mov eax, edx	;eax = (currCell % numCols)
+ 000000BF  F7 F3				div ebx
+ 000000C1  8B C2				mov eax, edx	;eax = (currCell % numCols)
 
 						;calculate ((esi % numCols) * 2) + 1
- 00000126  BB 00000002				mov ebx, 2
- 0000012B  F7 E3				mul ebx			;eax = ((currCell % numCols) * 2)
- 0000012D  40					inc eax			;eax = ((currCell % numCols) * 2) + 1
+ 000000C3  BB 00000002				mov ebx, 2
+ 000000C8  F7 E3				mul ebx			;eax = ((currCell % numCols) * 2)
+ 000000CA  40					inc eax			;eax = ((currCell % numCols) * 2) + 1
 
- 0000012E  2B F0				sub esi, eax	;move esi to row below on the board
+ 000000CB  2B F0				sub esi, eax	;move esi to row below on the board
 						
 						;check if after "sliding" down we are under the board
- 00000130  81 FE 0000005E R			cmp esi, OFFSET rearrangedBoard
- 00000136  7C 13				jl foundSOnFirstRow
- 00000138  EB 8D				jmp checkCurrCell
+ 000000CD  81 FE 0000005E R			cmp esi, OFFSET rearrangedBoard
+ 000000D3  7C 13				jl foundSOnFirstRow
+ 000000D5  EB 8D				jmp checkCurrCell
 
 					;player has played all moves
- 0000013A				endOfMoves:
- 0000013A  39 35 0000006F R			cmp lastCellOnBoard, esi
- 00000140  75 2D				jne outOfMoves		
- 00000142  C6 05 00000045 R			mov gamefin, 1			;last cell reached on last move => player won
+ 000000D7				endOfMoves:
+ 000000D7  39 35 0000006F R			cmp lastCellOnBoard, esi
+ 000000DD  75 2D				jne outOfMoves		
+ 000000DF  C6 05 00000045 R			mov gamefin, 1			;last cell reached on last move => player won
 	   01
- 00000149  EB 30				jmp gameEnded
+ 000000E6  EB 41				jmp gameEnded
 
 					;============================================ errors ============================================
 
 					;stepped on 'S' while on the first (bottom) row
- 0000014B				foundSOnFirstRow:
- 0000014B  C7 05 0000004E R			mov score, 1
+ 000000E8				foundSOnFirstRow:
+ 000000E8  C7 05 0000004E R			mov score, 1
 	   00000001
- 00000155  EB 24				jmp gameEnded
+ 000000F2  EB 35				jmp gameEnded
 
 					;stepped on 'E' while on the last (top) row
- 00000157				foundEOnLastRow:
- 00000157  C7 05 0000004E R			mov score, 2
+ 000000F4				foundEOnLastRow:
+ 000000F4  C7 05 0000004E R			mov score, 2
 	   00000002
- 00000161  EB 18				jmp gameEnded
+ 000000FE  EB 29				jmp gameEnded
 
 					;the player has passed the last cell on the board
- 00000163				passedLastCellOnBoard:
- 00000163  C7 05 0000004E R			mov score, 3
+ 00000100				passedLastCellOnBoard:
+ 00000100  C7 05 0000004E R			mov score, 3
 	   00000003
- 0000016D  EB 0C				jmp gameEnded
+ 0000010A  EB 1D				jmp gameEnded
 
 					;the player has run out of moves before reaching the last cell on the board
- 0000016F				outOfMoves:
- 0000016F  C7 05 0000004E R			mov score, 4
+ 0000010C				outOfMoves:
+ 0000010C  C7 05 0000004E R			mov score, 4
 	   00000004
- 00000179  EB 00				jmp gameEnded
+ 00000116  EB 11				jmp gameEnded
 
+ 00000118				invalidBoard:
+ 00000118  C7 05 0000004E R			mov score, -1
+	   FFFFFFFF
+ 00000122  C6 05 00000073 R			mov moveseries, -1
+	   FF
 					;============================================ end of game - print results ============================================
- 0000017B				gameEnded:
+ 00000129				gameEnded:
 						;print gameFin
- 0000017B  BA 0000003B R			mov edx, OFFSET gameFinStr
- 00000180  E8 00000000 E			call writeString
- 00000185  0F BE 05				movsx eax, gamefin
+ 00000129  BA 0000003B R			mov edx, OFFSET gameFinStr
+ 0000012E  E8 00000000 E			call writeString
+ 00000133  0F BE 05				movsx eax, gamefin
 	   00000045 R
- 0000018C  E8 00000000 E			call writedec
- 00000191  E8 00000000 E			call CRLF
+ 0000013A  E8 00000000 E			call writedec
+ 0000013F  E8 00000000 E			call CRLF
 						
 						;print score
- 00000196  BA 00000046 R			mov edx, OFFSET scoreStr
- 0000019B  E8 00000000 E			call writeString
- 000001A0  A1 0000004E R			mov eax, score
- 000001A5  E8 00000000 E			call writedec
- 000001AA  E8 00000000 E			call CRLF
+ 00000144  BA 00000046 R			mov edx, OFFSET scoreStr
+ 00000149  E8 00000000 E			call writeString
+ 0000014E  A1 0000004E R			mov eax, score
+ 00000153  E8 00000000 E			call writedec
+ 00000158  E8 00000000 E			call CRLF
 
 						;print moveNum
- 000001AF  BA 00000052 R			mov edx, OFFSET moveNumStr
- 000001B4  E8 00000000 E			call writeString
- 000001B9  0F BF 05				movsx eax, moveNum
+ 0000015D  BA 00000052 R			mov edx, OFFSET moveNumStr
+ 00000162  E8 00000000 E			call writeString
+ 00000167  0F BF 05				movsx eax, moveNum
 	   0000005C R
- 000001C0  E8 00000000 E			call writedec
- 000001C5  E8 00000000 E			call CRLF
+ 0000016E  E8 00000000 E			call writedec
+ 00000173  E8 00000000 E			call CRLF
 
 					exit
- 000001CA  6A 00	   *	    push   +000000000h
- 000001CC  E8 00000000 E   *	    call   ExitProcess
- 000001D1			myMain ENDP
+ 00000178  6A 00	   *	    push   +000000000h
+ 0000017A  E8 00000000 E   *	    call   ExitProcess
+ 0000017F			myMain ENDP
+
+ 0000017F			copyAndRearangeBoard PROC	
+ 0000017F  60				PUSHAD	
+ 00000180  BE 00000002 R		mov esi, OFFSET board
+ 00000185  BF 0000005E R		mov edi, OFFSET rearrangedBoard
+
+					;set esi to the bottom left cell
+ 0000018A  83 C6 10			add esi, SIZEOF board	
+ 0000018D  0F BE 1D			movsx ebx, BYTE PTR numCols			;if we want this to be generic we can multiply this value by 'TYPE board' (here its 1 so there is no need)
+	   00000001 R
+ 00000194  2B F3			sub esi, ebx
+
+					;main loop - each itteration copies a single row from board to rearrangedBoard
+ 00000196				nextRow:
+						;compare curr to board, if curr < board then finished copying
+						; (*) it doesn't matter if the last row is even or odd, in both cases the first cell is not less than 'OFFSET board'
+ 00000196  81 FE 00000002 R			cmp esi, OFFSET board
+ 0000019C  7C 5E				jl endOfCopy
+
+						;check parity 
+ 0000019E  0F BE 05				movsx eax, currRow
+	   0000006E R
+ 000001A5  83 E0 01				and eax, 1
+ 000001A8  83 F8 01				cmp eax, 1			;(eax = 1 => odd row number)
+ 000001AB  74 02				je copyOddRow
+ 000001AD  75 2B				jne copyEvenRow
+
+ 000001AF				copyOddRow:
+						;jump to the end of the row to copy backwards
+ 000001AF  0F BE 05				movsx eax, BYTE PTR numCols
+	   00000001 R
+ 000001B6  03 F0				add esi, eax
+ 000001B8  4E					dec esi
+
+ 000001B9  0F BE 0D				movsx ecx, BYTE PTR numCols
+	   00000001 R
+						; cells are copied one by one because we don't know in advance the value of numCols
+ 000001C0					copyCell1:
+ 000001C0  8A 06					mov al, BYTE PTR [esi]
+ 000001C2  88 07					mov [edi], al
+ 000001C4  47						inc edi
+ 000001C5  4E						dec esi
+ 000001C6  E2 F8					loop copyCell1
+
+						;set esi to the beginning of the row above
+ 000001C8  0F BE 05				movsx eax, BYTE PTR numCols
+	   00000001 R
+ 000001CF  2B F0				sub esi, eax
+ 000001D1  46					inc esi
+ 000001D2  FE 05 0000006E R			inc currRow
+ 000001D8  EB BC				jmp nextRow
+
+ 000001DA				copyEvenRow:
+ 000001DA  0F BE 0D				movsx ecx, BYTE PTR numCols
+	   00000001 R
+ 000001E1					copyCell2:
+ 000001E1  8A 06					mov al, BYTE PTR [esi]
+ 000001E3  88 07					mov [edi], al
+ 000001E5  47						inc edi
+ 000001E6  46						inc esi
+ 000001E7  E2 F8					loop copyCell2
+
+						;set esi to the beginning of the row above
+ 000001E9  0F BE 05				movsx eax, BYTE PTR numCols
+	   00000001 R
+ 000001F0  2B F0				sub esi, eax
+ 000001F2  2B F0				sub esi, eax
+ 000001F4  FE 05 0000006E R			inc currRow
+ 000001FA  EB 9A				jmp nextRow
+
+ 000001FC				endOfCopy:
+						;set lastCellOnBoard to be the address of the last cell
+ 000001FC  B8 0000005E R			mov eax, OFFSET rearrangedBoard
+ 00000201  83 C0 10				add eax, SIZEOF rearrangedBoard
+ 00000204  83 E8 01				sub eax, TYPE rearrangedBoard
+ 00000207  A3 0000006F R			mov lastCellOnBoard, eax
+					
+ 0000020C  61				POPAD
+ 0000020D  C3				ret
+ 0000020E			copyAndRearangeBoard ENDP
+
+				; original board is transfered, board is checked from last row to the first
+ 0000020E			checkboard PROC
+ = 00000008				i_NumCols = 8
+ = 0000000C				i_NumRows = i_NumCols + 4
+ = 00000010				BoardPtr = i_NumRows + 4
+					
+ 0000020E  55				push ebp
+ 0000020F  8B EC			mov ebp, esp
+ 00000211  56				push esi
+ 00000212  53				push ebx
+ 00000213  51				push ecx
+
+ 00000214  8B 75 10			mov esi, [ebp + BoardPtr]
+ 00000217  8B 4D 08			mov ecx, [ebp + i_NumCols]
+ 0000021A			checkLastRowForE:
+ 0000021A  80 3E 45			cmp [esi], byte PTR 'E'
+ 0000021D  74 26			je invalidBoard
+ 0000021F  46				inc	esi
+ 00000220  E2 F8			LOOP checkLastRowForE
+
+ 00000222			checkFirstRowForS:
+ 00000222  8B 75 10			mov esi, [ebp + BoardPtr]
+					add esi, [ebp + i_NumRows] * [ebp + i_NumCols]
+ex3.asm(268) : error A2026:constant expected
+ 00000225  8B 5D 0C			mov ebx, [ebp + i_NumRows]
+					
+
+ 00000228  80 3E 53			cmp [esi], byte PTR 'S'
+ 0000022B  74 0F			je checkEUnderS
+
+ 0000023C			checkEUnderS:
+ 0000023C  8B 5D 08			mov ebx, [ebp + i_NumCols];
+ 0000023F  80 3C 33 45			cmp [esi + ebx], byte PTR 'E'
+ 00000243  74 00			je invalidBoard
+
+ 00000245			invalidBoard:
+ 00000245  B8 FFFFFFFF			mov eax, -1
+
+ 0000024A			endOfProc:
+ 0000024A  59				pop ecx
+ 0000024B  5B				pop ebx
+ 0000024C  5E				pop esi
+ 0000024D  8B E5			mov esp, ebp
+ 0000024F  5D				pop ebp
+ 00000250  C2 000C			ret 12
+ 00000253			checkboard ENDP
+
+
+
+ 00000253			nextmove PROC
+
+ 00000253  C3				ret
+ 00000254			nextmove ENDP
 
 				END myMain
-Microsoft (R) Macro Assembler Version 14.10.25019.0	    05/31/17 09:31:34
+Microsoft (R) Macro Assembler Version 14.10.25019.0	    05/31/17 14:07:48
 ex							     Symbols 2 - 1
 
 
@@ -391,8 +466,8 @@ Segments and Groups:
 
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
-_DATA  . . . . . . . . . . . . .	32 Bit	 00000073 Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 000001D1 Para	  Public  'CODE'	
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000074 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 00000254 Para	  Public  'CODE'	
 
 
 Procedures, parameters, and locals:
@@ -499,24 +574,33 @@ WriteStackFrame  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 WriteString  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteToFile  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteWindowsMsg  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-myMain . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 000001D1 Public STDCALL
-  nextRow  . . . . . . . . . . .	L Near	 00000020 _TEXT	
-  copyOddRow . . . . . . . . . .	L Near	 00000039 _TEXT	
-  copyCell1  . . . . . . . . . .	L Near	 0000004A _TEXT	
-  copyEvenRow  . . . . . . . . .	L Near	 00000064 _TEXT	
-  copyCell2  . . . . . . . . . .	L Near	 0000006B _TEXT	
-  endOfCopy  . . . . . . . . . .	L Near	 00000086 _TEXT	
-  makeMove . . . . . . . . . . .	L Near	 0000009B _TEXT	
-  checkCurrCell  . . . . . . . .	L Near	 000000C7 _TEXT	
-  digit  . . . . . . . . . . . .	L Near	 000000D1 _TEXT	
-  E  . . . . . . . . . . . . . .	L Near	 000000DC _TEXT	
-  S  . . . . . . . . . . . . . .	L Near	 0000010F _TEXT	
-  endOfMoves . . . . . . . . . .	L Near	 0000013A _TEXT	
-  foundSOnFirstRow . . . . . . .	L Near	 0000014B _TEXT	
-  foundEOnLastRow  . . . . . . .	L Near	 00000157 _TEXT	
-  passedLastCellOnBoard  . . . .	L Near	 00000163 _TEXT	
-  outOfMoves . . . . . . . . . .	L Near	 0000016F _TEXT	
-  gameEnded  . . . . . . . . . .	L Near	 0000017B _TEXT	
+checkboard . . . . . . . . . . .	P Near	 0000020E _TEXT	Length= 00000045 Public STDCALL
+  checkLastRowForE . . . . . . .	L Near	 0000021A _TEXT	
+  checkFirstRowForS  . . . . . .	L Near	 00000222 _TEXT	
+  checkEUnderS . . . . . . . . .	L Near	 0000023C _TEXT	
+  invalidBoard . . . . . . . . .	L Near	 00000245 _TEXT	
+  endOfProc  . . . . . . . . . .	L Near	 0000024A _TEXT	
+copyAndRearangeBoard . . . . . .	P Near	 0000017F _TEXT	Length= 0000008F Public STDCALL
+  nextRow  . . . . . . . . . . .	L Near	 00000196 _TEXT	
+  copyOddRow . . . . . . . . . .	L Near	 000001AF _TEXT	
+  copyCell1  . . . . . . . . . .	L Near	 000001C0 _TEXT	
+  copyEvenRow  . . . . . . . . .	L Near	 000001DA _TEXT	
+  copyCell2  . . . . . . . . . .	L Near	 000001E1 _TEXT	
+  endOfCopy  . . . . . . . . . .	L Near	 000001FC _TEXT	
+myMain . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000017F Public STDCALL
+  makeMove . . . . . . . . . . .	L Near	 00000038 _TEXT	
+  checkCurrCell  . . . . . . . .	L Near	 00000064 _TEXT	
+  digit  . . . . . . . . . . . .	L Near	 0000006E _TEXT	
+  E  . . . . . . . . . . . . . .	L Near	 00000079 _TEXT	
+  S  . . . . . . . . . . . . . .	L Near	 000000AC _TEXT	
+  endOfMoves . . . . . . . . . .	L Near	 000000D7 _TEXT	
+  foundSOnFirstRow . . . . . . .	L Near	 000000E8 _TEXT	
+  foundEOnLastRow  . . . . . . .	L Near	 000000F4 _TEXT	
+  passedLastCellOnBoard  . . . .	L Near	 00000100 _TEXT	
+  outOfMoves . . . . . . . . . .	L Near	 0000010C _TEXT	
+  invalidBoard . . . . . . . . .	L Near	 00000118 _TEXT	
+  gameEnded  . . . . . . . . . .	L Near	 00000129 _TEXT	
+nextmove . . . . . . . . . . . .	P Near	 00000253 _TEXT	Length= 00000001 Public STDCALL
 printf . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
 scanf  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
 wsprintfA  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
@@ -536,6 +620,7 @@ Symbols:
 @fardata . . . . . . . . . . . .	Text   	 FLAT
 @stack . . . . . . . . . . . . .	Text   	 FLAT
 ALT_MASK . . . . . . . . . . . .	Number	 00000003h   
+BoardPtr . . . . . . . . . . . .	Number	 00000010h   
 CAPSLOCK_ON  . . . . . . . . . .	Number	 00000080h   
 CREATE_ALWAYS  . . . . . . . . .	Number	 00000002h   
 CREATE_NEW . . . . . . . . . . .	Number	 00000001h   
@@ -746,6 +831,8 @@ gameFinStr . . . . . . . . . . .	Byte	 0000003B _DATA
 gamefin  . . . . . . . . . . . .	Byte	 00000045 _DATA	
 gray . . . . . . . . . . . . . .	Number	 00000008h   
 green  . . . . . . . . . . . . .	Number	 00000002h   
+i_NumCols  . . . . . . . . . . .	Number	 00000008h   
+i_NumRows  . . . . . . . . . . .	Number	 0000000Ch   
 lastCellOnBoard  . . . . . . . .	DWord	 0000006F _DATA	
 lightBlue  . . . . . . . . . . .	Number	 00000009h   
 lightCyan  . . . . . . . . . . .	Number	 0000000Bh   
@@ -756,8 +843,10 @@ lightRed . . . . . . . . . . . .	Number	 0000000Ch
 magenta  . . . . . . . . . . . .	Number	 00000005h   
 moveNumStr . . . . . . . . . . .	Byte	 00000052 _DATA	
 moveNum  . . . . . . . . . . . .	Word	 0000005C _DATA	
+moveseries . . . . . . . . . . .	Byte	 00000073 _DATA	
 moves  . . . . . . . . . . . . .	Byte	 00000012 _DATA	
 myName . . . . . . . . . . . . .	Byte	 00000018 _DATA	
+nomoves  . . . . . . . . . . . .	Byte	 00000017 _DATA	
 numcols  . . . . . . . . . . . .	Byte	 00000001 _DATA	
 numrows  . . . . . . . . . . . .	Byte	 00000000 _DATA	
 rearrangedBoard  . . . . . . . .	Byte	 0000005E _DATA	
@@ -769,4 +858,4 @@ wsprintf . . . . . . . . . . . .	Text   	 wsprintfA
 yellow . . . . . . . . . . . . .	Number	 0000000Eh   
 
 	   0 Warnings
-	   0 Errors
+	   1 Errors
