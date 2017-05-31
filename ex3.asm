@@ -20,13 +20,12 @@ INCLUDE ex3_data.inc
 	lastCellOnBoard DWORD ?							;the address of the last cell on the board
 	moveseries SBYTE ?
 .code
-	myMain PROC
+myMain PROC
 	;Print my name
 	mov edx, OFFSET myName
 	call writestring
 
-	mov eax, OFFSET board		
-	push eax
+	push OFFSET board
 	movzx eax, numrows
 	push eax
 	movzx eax, numcols
@@ -40,134 +39,134 @@ INCLUDE ex3_data.inc
 	;initialize the game
 	mov esi, OFFSET rearrangedBoard
 
-makeMove:
-	movsx eax, moveNum						;current move index - initialized to 0
-	movsx ebx, BYTE PTR moves[eax] 			;get the current move value
+	makeMove:
+		movsx eax, moveNum						;current move index - initialized to 0
+		movsx ebx, BYTE PTR moves[eax] 			;get the current move value
 
-	cmp ebx, ';'							;if all moves done (reached ';') end game
-	je endOfMoves
+		cmp ebx, ';'							;if all moves done (reached ';') end game
+		je endOfMoves
 	
-	add esi, ebx							;move esi position according to move value
-	inc moveNum								;increment move counter
-	cmp esi, lastCellOnBoard				;if passed the last cell on the board = error
-	jg passedLastCellOnBoard
+		add esi, ebx							;move esi position according to move value
+		inc moveNum								;increment move counter
+		cmp esi, lastCellOnBoard				;if passed the last cell on the board = error
+		jg passedLastCellOnBoard
 
-checkCurrCell:
-	cmp BYTE PTR [esi], 'E'
-	je E							;jump if the cell is 'E'
-	cmp BYTE PTR [esi], 'S'
-	je S							;jump if the cell is 'S'
+	checkCurrCell:
+		cmp BYTE PTR [esi], 'E'
+		je E							;jump if the cell is 'E'
+		cmp BYTE PTR [esi], 'S'
+		je S							;jump if the cell is 'S'
 	
-	;if the current cell holds a digit add its value to score
-	digit:
-		movsx ecx, BYTE PTR [esi]	;add the value in current cell to score
-		add score, ecx
-		jmp makeMove				;else make another move
+		;if the current cell holds a digit add its value to score
+		digit:
+			movsx ecx, BYTE PTR [esi]	;add the value in current cell to score
+			add score, ecx
+			jmp makeMove				;else make another move
 
-	;if the current cell is 'E' then move one row up and check the value of the cell again
-	;the number of moves to make in order to go up one row: ((numCols -(currCell % numCols)) * 2) + 1
-	E:
-		;calculate: numCols - (currCell % numCols)
-		mov edx, 0
-		mov eax, esi
-		sub eax, OFFSET rearrangedBoard
-		movsx ebx, numCols
-		div ebx
-		movsx eax, numCols
-		dec eax
-		sub eax, edx		;eax = numCols - (currCell % numCols)
+		;if the current cell is 'E' then move one row up and check the value of the cell again
+		;the number of moves to make in order to go up one row: ((numCols -(currCell % numCols)) * 2) + 1
+		E:
+			;calculate: numCols - (currCell % numCols)
+			mov edx, 0
+			mov eax, esi
+			sub eax, OFFSET rearrangedBoard
+			movsx ebx, numCols
+			div ebx
+			movsx eax, numCols
+			dec eax
+			sub eax, edx		;eax = numCols - (currCell % numCols)
 
-		;calculate ((numCols -(esi % numCols)) * 2) + 1
-		mov ebx, 2
-		mul ebx				;eax = ((numCols -(currCell % numCols)) * 2)
-		inc eax				;eax = ((numCols -(currCell % numCols)) * 2) + 1
+			;calculate ((numCols -(esi % numCols)) * 2) + 1
+			mov ebx, 2
+			mul ebx				;eax = ((numCols -(currCell % numCols)) * 2)
+			inc eax				;eax = ((numCols -(currCell % numCols)) * 2) + 1
 		
-		add esi, eax		;move esi to row above on the board
+			add esi, eax		;move esi to row above on the board
 
-		;check if after "climbing" up we are above the board
-		cmp esi, lastCellOnBoard
-		jg foundEOnLastRow
-		jmp checkCurrCell
+			;check if after "climbing" up we are above the board
+			cmp esi, lastCellOnBoard
+			jg foundEOnLastRow
+			jmp checkCurrCell
 
-	;if the current cell is 'S' then down one row and check the value of the cell again
-	;the number of moves to make in order to go down one row: - ((currCell % numCols) * 2) + 1
-	S:
-		;calculate (currCell % numCols)
-		mov edx, 0
-		mov eax, esi
-		sub eax, OFFSET rearrangedBoard
-		movsx ebx, numCols
-		div ebx
-		mov eax, edx	;eax = (currCell % numCols)
+		;if the current cell is 'S' then down one row and check the value of the cell again
+		;the number of moves to make in order to go down one row: - ((currCell % numCols) * 2) + 1
+		S:
+			;calculate (currCell % numCols)
+			mov edx, 0
+			mov eax, esi
+			sub eax, OFFSET rearrangedBoard
+			movsx ebx, numCols
+			div ebx
+			mov eax, edx	;eax = (currCell % numCols)
 
-		;calculate ((esi % numCols) * 2) + 1
-		mov ebx, 2
-		mul ebx			;eax = ((currCell % numCols) * 2)
-		inc eax			;eax = ((currCell % numCols) * 2) + 1
+			;calculate ((esi % numCols) * 2) + 1
+			mov ebx, 2
+			mul ebx			;eax = ((currCell % numCols) * 2)
+			inc eax			;eax = ((currCell % numCols) * 2) + 1
 
-		sub esi, eax	;move esi to row below on the board
+			sub esi, eax	;move esi to row below on the board
 		
-		;check if after "sliding" down we are under the board
-		cmp esi, OFFSET rearrangedBoard
-		jl foundSOnFirstRow
-		jmp checkCurrCell
+			;check if after "sliding" down we are under the board
+			cmp esi, OFFSET rearrangedBoard
+			jl foundSOnFirstRow
+			jmp checkCurrCell
 
-	;player has played all moves
-	endOfMoves:
-		cmp lastCellOnBoard, esi
-		jne outOfMoves		
-		mov gamefin, 1			;last cell reached on last move => player won
-		jmp gameEnded
+		;player has played all moves
+		endOfMoves:
+			cmp lastCellOnBoard, esi
+			jne outOfMoves		
+			mov gamefin, 1			;last cell reached on last move => player won
+			jmp gameEnded
 
-	;============================================ errors ============================================
+		;============================================ errors ============================================
 
-	;stepped on 'S' while on the first (bottom) row
-	foundSOnFirstRow:
-		mov score, 1
-		jmp gameEnded
+		;stepped on 'S' while on the first (bottom) row
+		foundSOnFirstRow:
+			mov score, 1
+			jmp gameEnded
 
-	;stepped on 'E' while on the last (top) row
-	foundEOnLastRow:
-		mov score, 2
-		jmp gameEnded
+		;stepped on 'E' while on the last (top) row
+		foundEOnLastRow:
+			mov score, 2
+			jmp gameEnded
 
-	;the player has passed the last cell on the board
-	passedLastCellOnBoard:
-		mov score, 3
-		jmp gameEnded
+		;the player has passed the last cell on the board
+		passedLastCellOnBoard:
+			mov score, 3
+			jmp gameEnded
 
-	;the player has run out of moves before reaching the last cell on the board
-	outOfMoves:
-		mov score, 4
-		jmp gameEnded
+		;the player has run out of moves before reaching the last cell on the board
+		outOfMoves:
+			mov score, 4
+			jmp gameEnded
 
-	invalidBoard:
-		mov score, -1
-		mov moveseries, -1
-	;============================================ end of game - print results ============================================
-	gameEnded:
-		;print gameFin
-		mov edx, OFFSET gameFinStr
-		call writeString
-		movsx eax, gamefin
-		call writedec
-		call CRLF
+		invalidBoard:
+			mov score, -1
+			mov moveseries, -1
+		;============================================ end of game - print results ============================================
+		gameEnded:
+			;print gameFin
+			mov edx, OFFSET gameFinStr
+			call writeString
+			movsx eax, gamefin
+			call writedec
+			call CRLF
 		
-		;print score
-		mov edx, OFFSET scoreStr
-		call writeString
-		mov eax, score
-		call writedec
-		call CRLF
+			;print score
+			mov edx, OFFSET scoreStr
+			call writeString
+			mov eax, score
+			call writedec
+			call CRLF
 
-		;print moveNum
-		mov edx, OFFSET moveNumStr
-		call writeString
-		movsx eax, moveNum
-		call writedec
-		call CRLF
+			;print moveNum
+			mov edx, OFFSET moveNumStr
+			call writeString
+			movsx eax, moveNum
+			call writedec
+			call CRLF
 
-	exit
+		exit
 myMain ENDP
 
 copyAndRearangeBoard PROC	
@@ -257,50 +256,60 @@ checkboard PROC
 
 	mov esi, [ebp + BoardPtr]
 	mov ecx, [ebp + i_NumRows]
-checkRows:
-	mov ebx, ecx
-	mov ecx, [ebp + i_NumCols]
-	checkCols:
-		push esi
-		push [ebp + BoardPtr]
-		call checkCell
-		nextCol:
+	checkRows:
+		mov ebx, ecx
+		mov ecx, [ebp + i_NumCols]
+		checkCols:
+			push esi
+			push [ebp + BoardPtr]
+			call checkCell
+			;cmp [esi], byte PTR 'S'			TODO ?!?!
+			;je checkEUnderS
+			nextCol:
+				inc esi
+				LOOP checkCols
+		mov ecx, ebx
+		LOOP checkRows
+
+
+	checkLastRowForE:
+		cmp [esi], byte PTR 'E'
+		je invalidBoard
+		inc	esi
+		LOOP checkLastRowForE
+
+	checkFirstRowForS:
+		;get to bottom left cell
+		mov esi, [ebp + BoardPtr]
+		mov ecx, [ebp + i_NumRows]
+		dec ecx
+		lp1:
+			add esi, [ebp + i_NumCols]
+			LOOP lp1
+		
+		;loop trough cells of first row
+		mov ecx, [ebp + i_NumCols]
+		lp2:
+			cmp [esi], byte PTR 'S'
+			je invalidBoard
 			inc esi
-			LOOP checkCols
-	mov ecx, ebx
-	LOOP checkRows
+			LOOP lp2
 
-checkLastRowForE:
-	cmp [esi], byte PTR 'E'
-	je invalidBoard
-	inc	esi
-	LOOP checkLastRowForE
+	checkEUnderS:
+		mov ebx, [ebp + i_NumCols];
+		cmp [esi + ebx], byte PTR 'E'
+		je invalidBoard
 
-checkFirstRowForS:
-	mov esi, [ebp + BoardPtr]
+	invalidBoard:
+		mov eax, -1
 
-	add esi, [ebp + i_NumRows]
-	mov ebx, [ebp + i_NumRows]
-	
-
-	cmp [esi], byte PTR 'S'
-	je checkEUnderS
-
-checkEUnderS:
-	mov ebx, [ebp + i_NumCols];
-	cmp [esi + ebx], byte PTR 'E'
-	je invalidBoard
-
-invalidBoard:
-	mov eax, -1
-
-endOfProc:
-	pop ecx
-	pop ebx
-	pop esi
-	mov esp, ebp
-	pop ebp
-	ret 12
+	endOfProc:
+		pop ecx
+		pop ebx
+		pop esi
+		mov esp, ebp
+		pop ebp
+		ret 12
 checkboard ENDP
 
 ; parmeters (cell address, first cell address, last cell address)
