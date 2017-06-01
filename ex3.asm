@@ -421,7 +421,11 @@ nextmove PROC
 	ret 8
 nextmove ENDP
 
+; check if a given move series solves the board
+; parameters (moveSeriesPtr, boardPtr, numRows, numCols)
+; assumption: the board is valid
 checksolved PROC
+	; TODO can i send the rearanged board?
 	
 	ret
 checksolved ENDP
