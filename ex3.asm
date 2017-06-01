@@ -18,7 +18,7 @@ INCLUDE ex3_data.inc
 	rearrangedBoard BYTE LENGTHOF board DUP(?)		;a copy of the given board, rearanged by stepping order
 	currRow BYTE 0									;the current row being copied
 	lastCellOnBoard DWORD ?							;the address of the last cell on the board
-	moveseries SBYTE ?
+	moveseries SBYTE 6, 6, 6, 1, 1
 	MIN_DIGIT = 1
 	MAX_DIGIT = 40
 .code
@@ -26,6 +26,12 @@ myMain PROC
 	;Print my name
 	mov edx, OFFSET myName
 	call writestring
+	
+	push OFFSET moveSeries
+	mov ebx, byte PTR 3
+	push ebx
+	call nextMove
+
 
 	push OFFSET board
 	movzx eax, numrows
@@ -177,9 +183,16 @@ copyAndRearangeBoard PROC
 	mov edi, OFFSET rearrangedBoard
 
 	;set esi to the bottom left cell
-	add esi, SIZEOF board	
-	movsx ebx, BYTE PTR numCols			;if we want this to be generic we can multiply this value by 'TYPE board' (here its 1 so there is no need)
-	sub esi, ebx
+	;add esi, SIZEOF board	
+	;movsx ebx, BYTE PTR numCols			;if we want this to be generic we can multiply this value by 'TYPE board' (here its 1 so there is no need)
+	;sub esi, ebx
+
+	push OFFSET board
+	movzx eax, numrows
+	push eax
+	movzx eax, numcols
+	push eax
+	call moveEsiToBottomLeft
 
 	;main loop - each itteration copies a single row from board to rearrangedBoard
 	nextRow:
@@ -248,7 +261,7 @@ copyAndRearangeBoard ENDP
 checkboard PROC
 	i_NumCols = 8
 	i_NumRows = i_NumCols + 4
-	BoardPtr = i_NumRows + 4
+	i_BoardPtr = i_NumRows + 4
 	
 	push ebp
 	mov ebp, esp
@@ -257,7 +270,9 @@ checkboard PROC
 	push ecx
 	push edx
 
-	mov esi, [ebp + BoardPtr]
+	;set eax to 1 , will be changed to -1 if the board is invalid
+	mov eax, 0
+	mov esi, [ebp + i_BoardPtr]
 	mov ecx, [ebp + i_NumRows]
 	checkRows:
 		mov ebx, ecx
@@ -290,7 +305,8 @@ checkboard PROC
 		mov ecx, ebx
 		LOOP checkRows
 
-	mov esi, [ebp + BoardPtr]
+	;check if there is an 'E' on the top row
+	mov esi, [ebp + i_BoardPtr]
 	mov ecx, [ebp + i_NumCols]
 	checkLastRowForE:
 		cmp [esi], byte PTR 'E'
@@ -298,15 +314,14 @@ checkboard PROC
 		inc	esi
 		LOOP checkLastRowForE
 
+	;check if there us an 'S' on the bottom row
+	;get to bottom left cell	
+	push [ebp + i_BoardPtr]
+	push [ebp + i_NumRows]
+	push [ebp + i_NumCols]
+	call moveEsiToBottomLeft
+
 	checkFirstRowForS:
-		;get to bottom left cell
-		mov esi, [ebp + BoardPtr]
-		mov ecx, [ebp + i_NumRows]
-		dec ecx
-		lp1:
-			add esi, [ebp + i_NumCols]
-			LOOP lp1
-		
 		;loop trough cells of first row
 		mov ecx, [ebp + i_NumCols]
 		lp2:
@@ -315,11 +330,10 @@ checkboard PROC
 			inc esi
 			LOOP lp2
 
-	checkEUnderS:
-		
-		je invalidBoard
-		
-
+	; if passed all checks, jump to end of procedure
+	jmp endOfProc
+	
+	; if at any point an invalid cell value is found, will jump to here
 	invalidBoard:
 		mov eax, -1
 
@@ -333,15 +347,83 @@ checkboard PROC
 		ret 12
 checkboard ENDP
 
+; set ESI to point at the bottom left cell of the given board
+; parameters (boardPtr, numRows, numCols)
+moveEsiToBottomLeft PROC
+	i_NumCols = 8
+	i_NumRows = i_NumCols + 4
+	i_BoardPtr = i_NumRows + 4
+
+	push ebp
+	mov ebp, esp
+	push ecx
+
+	mov esi, [ebp + i_BoardPtr]
+	mov ecx, [ebp + i_NumRows]
+	dec ecx
+	nextRow:
+		add esi, [ebp + i_NumCols]
+		LOOP nextRow
+		
+	pop ecx
+	mov esp, ebp
+	pop ebp
+	ret 12
+moveEsiToBottomLeft ENDP
+
 ; parmeters (cell address, first cell address, last cell address)
 checkCell PROC
 	
 	ret
 checkCell ENDP
 
+; gets a pointer to a series of moves, and returns the next series
+; parameters (movesSeriesPtr, lengthOfSeries)
+; assumption: all values of the series are numbers between 1-6
 nextmove PROC
+	i_lengthOfSeries = 8
+	i_MovesSeriesPtr = i_lengthOfSeries + 4
 
-	ret
+	push ebp
+	mov ebp, esp
+	push esi
+	push ecx
+	push ebx
+
+	; init EAX to 0, will be changed to 1 if series is 66...6
+	mov eax, 0
+	mov esi, [ebp + i_MovesSeriesPtr]
+	mov ebx, [ebp + i_lengthOfSeries]
+	add esi, ebx
+	incPrev:
+		dec esi
+		cmp esi, [ebp + i_MovesSeriesPtr]
+		jl all6Series
+		cmp [esi], byte PTR 6
+		jl isLessThan6
+		mov [esi], byte PTR 1
+		LOOP incPrev
+	
+	isLessThan6:
+		add [esi], byte PTR 1
+		jmp endProc
+
+	all6Series:
+		mov eax, 1
+		jmp endProc
+
+	endProc:
+	pop ebx
+	pop ecx
+	pop esi
+	mov esp, ebp
+	pop ebp
+	ret 8
 nextmove ENDP
+
+checksolved PROC
+	
+	ret
+checksolved ENDP
 
 END myMain
