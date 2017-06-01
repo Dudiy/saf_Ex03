@@ -19,6 +19,8 @@ INCLUDE ex3_data.inc
 	currRow BYTE 0									;the current row being copied
 	lastCellOnBoard DWORD ?							;the address of the last cell on the board
 	moveseries SBYTE ?
+	MIN_DIGIT = 1
+	MAX_DIGIT = 40
 .code
 myMain PROC
 	;Print my name
@@ -253,6 +255,7 @@ checkboard PROC
 	push esi
 	push ebx
 	push ecx
+	push edx
 
 	mov esi, [ebp + BoardPtr]
 	mov ecx, [ebp + i_NumRows]
@@ -260,18 +263,35 @@ checkboard PROC
 		mov ebx, ecx
 		mov ecx, [ebp + i_NumCols]
 		checkCols:
-			push esi
-			push [ebp + BoardPtr]
-			call checkCell
-			;cmp [esi], byte PTR 'S'			TODO ?!?!
-			;je checkEUnderS
+			cmp [esi], byte PTR 'S'
+			;if 'S' check cell under
+			jne notS							
+			mov edx, [ebp + i_NumCols]
+			;if equal then there is E under S
+			cmp [esi + edx], byte PTR 'E'		
+			je invalidBoard
+			jmp nextCol
+
+			notS:
+			;if 'E' there can't be S above (we are checking from top to bottom)
+			cmp [esi], byte PTR 'E'				
+			je nextCol
+
+			;not 'S' or 'E' so must be a digit between 1 and 40
+			cmp [esi], byte PTR MIN_DIGIT
+			jl invalidBoard
+
+			cmp [esi], byte PTR MAX_DIGIT
+			jg invalidBoard
+
 			nextCol:
 				inc esi
 				LOOP checkCols
 		mov ecx, ebx
 		LOOP checkRows
 
-
+	mov esi, [ebp + BoardPtr]
+	mov ecx, [ebp + i_NumCols]
 	checkLastRowForE:
 		cmp [esi], byte PTR 'E'
 		je invalidBoard
@@ -296,14 +316,15 @@ checkboard PROC
 			LOOP lp2
 
 	checkEUnderS:
-		mov ebx, [ebp + i_NumCols];
-		cmp [esi + ebx], byte PTR 'E'
+		
 		je invalidBoard
+		
 
 	invalidBoard:
 		mov eax, -1
 
 	endOfProc:
+		pop edx
 		pop ecx
 		pop ebx
 		pop esi
