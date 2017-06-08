@@ -18,8 +18,8 @@ INCLUDE ex3_data.inc
 	rearrangedBoard BYTE LENGTHOF board DUP(?)		;a copy of the given board, rearanged by stepping order
 	currRow BYTE 0									;the current row being copied
 	lastCellOnBoard DWORD ?							;the address of the last cell on the board
-	moveseries SBYTE 5, 5, 1, ';'	; TODO: Important change to nomoves somehow
-	;moveseries SBYTE 5 DUP(?)	; TODO: Important change to nomoves somehow
+	;moveseries SBYTE 5, 5, 1, ';'	; TODO: Important change to nomoves somehow
+	moveseries SBYTE 10 DUP(?)	; TODO: Important change to nomoves somehow
 	MIN_DIGIT = 1
 	MAX_DIGIT = 40
 .code
@@ -51,32 +51,40 @@ myMain PROC
 	push eax
 	call findshortseries
 
+	push OFFSET moveseries
+	push OFFSET rearrangedBoard
+	movsx eax, numrows
+	push eax
+	movzx eax, numcols
+	push eax
+	call writescore
+
 	invalidBoard:
 		mov score, -1
 		mov moveseries, -1
 
-		;============================================ end of game - print results ============================================
-		gameEnded:
-			;print gameFin
-			mov edx, OFFSET gameFinStr
-			call writeString
-			movsx eax, gamefin
-			call writedec
-			call CRLF
+	;============================================ end of game - print results ============================================
+	gameEnded:
+		;print gameFin
+		mov edx, OFFSET gameFinStr
+		call writeString
+		movsx eax, gamefin
+		call writedec
+		call CRLF
 		
-			;print score
-			mov edx, OFFSET scoreStr
-			call writeString
-			mov eax, score
-			call writedec
-			call CRLF
+		;print score
+		mov edx, OFFSET scoreStr
+		call writeString
+		mov eax, score
+		call writedec
+		call CRLF
 
-			;print moveNum
-			mov edx, OFFSET moveNumStr
-			call writeString
-			movsx eax, byte PTR [ebp + moveNum]
-			call writedec
-			call CRLF
+		;print moveNum
+		mov edx, OFFSET moveNumStr
+		call writeString
+		movsx eax, byte PTR [ebp + moveNum]
+		call writedec
+		call CRLF
 
 		exit
 myMain ENDP
@@ -325,8 +333,8 @@ nextmove ENDP
 checksolved PROC
 	i_NumCols = 8
 	i_NumRows =  i_NumCols + 4
-	i_rearrangedBoardPtr = i_NumRows + 4
-	i_MovesSeriesPtr = i_rearrangedBoardPtr + 4
+	i_RearrangedBoardPtr = i_NumRows + 4
+	i_MovesSeriesPtr = i_RearrangedBoardPtr + 4
 
 	moveNum = - 4
 	currentScore = moveNum - 4
@@ -336,15 +344,13 @@ checksolved PROC
 	; init moveNum and score to 0
 	push 0
 	push 0
-
 	push esi
 	push ebx
 	push ecx
-	push edx
 
 	;============================================ start making moves on the board ============================================
 	;initialize the game
-	mov esi, [ebp + i_rearrangedBoardPtr]
+	mov esi, [ebp + i_RearrangedBoardPtr]
 
 	makeMove:
 		mov ebx, [ebp + i_MovesSeriesPtr]
@@ -373,43 +379,17 @@ checksolved PROC
 			jmp makeMove				;else make another move
 
 		;if the current cell is 'E' then move one row up and check the value of the cell again
-		;the number of moves to make in order to go up one row: ((numCols -(currCell % numCols)) * 2) + 1
 		E:
-			;calculate: numCols - (currCell % numCols)
-			mov edx, 0
-			mov eax, esi
-			sub eax, [ebp + i_rearrangedBoardPtr]
-			movsx ebx, numCols
-			div ebx
-			movsx eax, numCols
-			dec eax
-			sub eax, edx		;eax = numCols - (currCell % numCols)
-
-			;calculate ((numCols -(esi % numCols)) * 2) + 1
-			mov ebx, 2
-			mul ebx				;eax = ((numCols -(currCell % numCols)) * 2)
-			inc eax				;eax = ((numCols -(currCell % numCols)) * 2) + 1
-		
-			add esi, eax		;move esi to row above on the board
+			push [ebp + i_RearrangedBoardPtr]
+			push [ebp + i_NumCols]
+			call stepOnE
 			jmp checkCurrCell
 
 		;if the current cell is 'S' then down one row and check the value of the cell again
-		;the number of moves to make in order to go down one row: - ((currCell % numCols) * 2) + 1
 		S:
-			;calculate (currCell % numCols)
-			mov edx, 0
-			mov eax, esi
-			sub eax, [ebp + i_rearrangedBoardPtr]
-			movsx ebx, numCols
-			div ebx
-			mov eax, edx	;eax = (currCell % numCols)
-
-			;calculate ((esi % numCols) * 2) + 1
-			mov ebx, 2
-			mul ebx			;eax = ((currCell % numCols) * 2)
-			inc eax			;eax = ((currCell % numCols) * 2) + 1
-
-			sub esi, eax	;move esi to row below on the board
+			push [ebp + i_RearrangedBoardPtr]
+			push [ebp + i_NumCols]
+			call stepOnS
 			jmp checkCurrCell
 
 		;player has played all moves
@@ -432,11 +412,9 @@ checksolved PROC
 			jmp endOfProc
 
 	endOfProc:
-		pop edx
 		pop ecx
 		pop ebx
 		pop esi
-
 		mov esp, ebp
 		pop ebp
 		ret 16		
@@ -448,8 +426,8 @@ checksolved ENDP
 findshortseries PROC
 	i_NumCols = 8
 	i_NumRows = i_NumCols + 4
-	i_rearrangedBoardPtr = i_NumRows + 4
-	i_Nomoves = i_rearrangedBoardPtr + 4
+	i_RearrangedBoardPtr = i_NumRows + 4
+	i_Nomoves = i_RearrangedBoardPtr + 4
 	i_MovesSeriesPtr = i_Nomoves + 4
 
 	lengthOfSeries = -4
@@ -458,8 +436,8 @@ findshortseries PROC
 	mov ebp, esp
 	; init lengthOfSeries
 	push 1
-
 	push ebx
+
 	; init moveSeries 
 	mov ebx, [ebp + i_MovesSeriesPtr]
 	mov [ebx], byte PTR 1
@@ -468,7 +446,7 @@ findshortseries PROC
 
 	loop1:
 		push [ebp + i_MovesSeriesPtr]
-		push [ebp + i_rearrangedBoardPtr]
+		push [ebp + i_RearrangedBoardPtr]
 		push [ebp + i_NumRows]
 		push [ebp + i_NumCols]
 		call checksolved
@@ -505,10 +483,167 @@ findshortseries PROC
 
 	endOfProc:
 		pop ebx
-
 		mov esp, ebp
 		pop ebp
 		ret 20
 findshortseries ENDP
+
+; increment ESI to the row above
+; parameters (rearrangedBoardPtr, numCols)
+; assumptions: rearrangedBoardPtr points to a valid board
+stepOnE PROC
+	i_NumCols = 8
+	i_RearrangedBoardPtr = i_NumCols + 4
+	push ebp
+	mov ebp, esp
+	push eax
+	push ebx
+	push edx
+
+	;calculate numCols - (currCell % numCols)
+	push [ebp + i_RearrangedBoardPtr]
+	push [ebp + i_NumCols]
+	call calc_ESI_Mod_NumCols				; eax = (currCell % numCols)
+	mov ebx, eax
+	mov eax, [ebp + i_NumCols]
+	dec eax
+	sub eax, ebx							;eax = numCols - (currCell % numCols)
+
+	;calculate ((numCols -(esi % numCols)) * 2) + 1
+	mov ebx, 2
+	mul ebx				;eax = ((numCols -(currCell % numCols)) * 2)
+	inc eax				;eax = ((numCols -(currCell % numCols)) * 2) + 1
+		
+	add esi, eax		;move esi to row above on the board
+
+	pop edx
+	pop ebx
+	pop eax
+	mov esp, ebp
+	pop ebp
+	ret 8
+stepOnE ENDP
+
+; decrement ESI to the row above
+; parameters (rearrangedBoardPtr, numCols)
+; assumptions: rearrangedBoardPtr points to a valid board
+stepOnS PROC
+	i_NumCols = 8
+	i_RearrangedBoardPtr = i_NumRows + 4
+	push ebp
+	mov ebp, esp
+	push eax
+	push ebx
+	push edx
+
+	; calculate (esi % numCols) => eax
+	push [ebp + i_RearrangedBoardPtr]
+	push [ebp + i_NumCols]
+	call calc_ESI_Mod_NumCols
+	
+	;calculate ((esi % numCols) * 2) + 1
+	mov ebx, 2
+	mul ebx			;eax = ((currCell % numCols) * 2)
+	inc eax			;eax = ((currCell % numCols) * 2) + 1
+	
+	sub esi, eax	;move esi to row below on the board
+
+	pop edx
+	pop ebx
+	pop eax
+	mov esp,ebp
+	pop ebp
+	ret 8 
+stepOnS ENDP
+
+; calculates esi (currentCell) modulos numCols  => currCell%numCols, returns the value in eax register
+; parameters (rearrangedBoardPtr, numCols)
+calc_ESI_Mod_NumCols PROC
+	i_NumCols = 8
+	i_RearrangedBoardPtr = i_NumRows + 4
+	push ebp
+	mov ebp, esp
+	push ebx
+	push edx
+
+	mov edx, 0
+	mov eax, esi
+	sub eax, [ebp + i_RearrangedBoardPtr]
+	mov ebx, [ebp + i_NumCols]
+	div ebx
+	mov eax, edx				;eax = (currCell % numCols)
+
+	pop edx
+	pop ebx
+	mov esp, ebp
+	pop ebp
+	ret 4
+calc_ESI_Mod_NumCols ENDP
+
+
+; given a series of moves, calculate the score
+; parameters (moveSeriesPtr, rearrangedBoardPtr, numRows, numCols)
+; assumption: the board is valid and rearanged, the set of moves is valid
+writescore PROC
+	i_NumCols = 8
+	i_NumRows =  i_NumCols + 4
+	i_RearrangedBoardPtr = i_NumRows + 4
+	i_MovesSeriesPtr = i_RearrangedBoardPtr + 4
+
+	push ebp
+	mov ebp, esp
+	push esi
+	push ebx
+	push ecx
+
+	;============================================ start making moves on the board ============================================
+	;initialize the game
+	mov eax, 0			;init the score to 0
+	mov esi, [ebp + i_RearrangedBoardPtr]
+
+	makeMove:
+		mov ebx, [ebp + i_MovesSeriesPtr]
+		movsx ebx, byte PTR [ebx] 				;get the current move value
+		cmp ebx, ';'							;if all moves done (reached ';') end game
+		je endOfMoves
+
+		add esi, ebx							;move esi position according to move value
+
+	checkCurrCell:
+		cmp BYTE PTR [esi], 'E'
+		je E							;jump if the cell is 'E'
+		cmp BYTE PTR [esi], 'S'
+		je S							;jump if the cell is 'S'
+	
+		;if the current cell holds a digit add its value to score
+		digit:
+			movsx ebx, BYTE PTR [esi]
+			add eax, ebx								;add the value in current cell to score
+			inc DWORD PTR [ebp + i_MovesSeriesPtr]		;move the movesSeries pointer to the next move
+			jmp makeMove								;else make another move
+
+		;if the current cell is 'E' then move one row up and check the value of the cell again
+		E:
+			push [ebp + i_RearrangedBoardPtr]
+			push [ebp + i_NumCols]
+			call stepOnE
+			jmp checkCurrCell
+
+		;if the current cell is 'S' then down one row and check the value of the cell again
+		S:
+			push [ebp + i_RearrangedBoardPtr]
+			push [ebp + i_NumCols]
+			call stepOnS
+			jmp checkCurrCell
+
+	;player has played all moves
+	endOfMoves:
+		pop ecx
+		pop ebx
+		pop esi
+		mov esp, ebp
+		pop ebp
+		ret 16		
+writescore ENDP
 
 END myMain
