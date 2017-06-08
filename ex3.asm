@@ -9,21 +9,16 @@ INCLUDE ex3_data.inc
 
 .data
 	myName BYTE "Dudi Yecheskel  ID:200441749  EX2",10,0
-	gameFinStr BYTE "gameFin: " , 0
-	gamefin BYTE 0									;init to 0 - will change to 1 only if the player wins
-	scoreStr BYTE "score: " , 0
-	score DWORD 0									;sum of cell values if player wins or error identifier if player looses
-	moveNumStr BYTE "moveNum: ", 0
-	;moveNum WORD 0									;the number of moves made before the game ended
-	rearrangedBoard BYTE LENGTHOF board DUP(?)		;a copy of the given board, rearanged by stepping order
-	currRow BYTE 0									;the current row being copied
-	lastCellOnBoard DWORD ?							;the address of the last cell on the board
-	;moveseries SBYTE 5, 5, 1, ';'	; TODO: Important change to nomoves somehow
-	moveseries SBYTE 10 DUP(?)	; TODO: Important change to nomoves somehow
+	gamefin BYTE 0									; init to 0 - will change to 1 only if the player wins
+	score DWORD 0									; sum of cell values if player wins or error identifier if player looses
+	rearrangedBoard BYTE LENGTHOF board DUP(?)		; a copy of the given board, rearanged by stepping order
+	currRow BYTE 0									; the current row being copied
+	lastCellOnBoard DWORD ?							; the address of the last cell on the board
+	moveseries SBYTE 127*127 DUP(?)					; board size is at most 127*127
 	MIN_DIGIT = 1
 	MAX_DIGIT = 40
-.code
 
+.code
 myMain PROC
 	;Print my name
 	mov edx, OFFSET myName
@@ -50,6 +45,8 @@ myMain PROC
 	movzx eax, numcols
 	push eax
 	call findshortseries
+	cmp eax, -1
+	je invalidBoard
 
 	push OFFSET moveseries
 	push OFFSET rearrangedBoard
@@ -58,35 +55,20 @@ myMain PROC
 	movzx eax, numcols
 	push eax
 	call writescore
+	mov score, eax
+	jmp printRes
 
 	invalidBoard:
 		mov score, -1
 		mov moveseries, -1
+	
+	printRes:
+		push OFFSET moveseries
+		mov eax, [score]
+		push eax
+		call printResults
 
-	;============================================ end of game - print results ============================================
-	gameEnded:
-		;print gameFin
-		mov edx, OFFSET gameFinStr
-		call writeString
-		movsx eax, gamefin
-		call writedec
-		call CRLF
-		
-		;print score
-		mov edx, OFFSET scoreStr
-		call writeString
-		mov eax, score
-		call writedec
-		call CRLF
-
-		;print moveNum
-		mov edx, OFFSET moveNumStr
-		call writeString
-		movsx eax, byte PTR [ebp + moveNum]
-		call writedec
-		call CRLF
-
-		exit
+	exit
 myMain ENDP
 
 copyAndRearangeBoard PROC	
@@ -494,6 +476,7 @@ findshortseries ENDP
 stepOnE PROC
 	i_NumCols = 8
 	i_RearrangedBoardPtr = i_NumCols + 4
+
 	push ebp
 	mov ebp, esp
 	push eax
@@ -507,7 +490,7 @@ stepOnE PROC
 	mov ebx, eax
 	mov eax, [ebp + i_NumCols]
 	dec eax
-	sub eax, ebx							;eax = numCols - (currCell % numCols)
+	sub eax, ebx							;eax = (numCols - 1) - (currCell % numCols)
 
 	;calculate ((numCols -(esi % numCols)) * 2) + 1
 	mov ebx, 2
@@ -560,7 +543,7 @@ stepOnS ENDP
 ; parameters (rearrangedBoardPtr, numCols)
 calc_ESI_Mod_NumCols PROC
 	i_NumCols = 8
-	i_RearrangedBoardPtr = i_NumRows + 4
+	i_RearrangedBoardPtr = i_NumCols + 4
 	push ebp
 	mov ebp, esp
 	push ebx
@@ -577,7 +560,7 @@ calc_ESI_Mod_NumCols PROC
 	pop ebx
 	mov esp, ebp
 	pop ebp
-	ret 4
+	ret 8
 calc_ESI_Mod_NumCols ENDP
 
 
@@ -645,5 +628,61 @@ writescore PROC
 		pop ebp
 		ret 16		
 writescore ENDP
+
+; print the results to the console
+; parameters (moveseriesPtr, score)
+; assumption, moveseries must end with ';'
+.data
+	comma BYTE ", " , 0
+	moveseriesStr BYTE "moveseries: ", 0	
+	scoreStr BYTE "score: " , 0						  	
+.code
+printResults PROC
+	i_Score = 8
+	i_MoveSeriesPtr = i_Score + 4
+	
+	push ebp
+	mov ebp, esp
+	push eax
+	push edx
+	push esi
+
+	mov esi, [ebp + i_MoveSeriesPtr]
+	
+	mov edx, OFFSET moveseriesStr
+	call writeString
+	mov eax, [ebp + i_Score]
+	cmp eax, -1
+	jnz printMove
+	call writeInt
+	jmp endOfMoveSeriesPrint
+
+	printMove:
+		movsx eax, SBYTE PTR [esi]
+		call writeDec
+		inc esi
+		cmp [esi], byte PTR ';'
+		jz endOfMoveSeriesPrint
+		mov edx, OFFSET comma
+		call writeString
+		jmp printMove
+
+	endOfMoveSeriesPrint:
+	call CRLF	
+	
+	;print score
+	mov edx, OFFSET scoreStr
+	call writeString
+	mov eax, [ebp + i_Score]
+	call writeInt
+	call CRLF
+
+	pop esi
+	pop edx
+	pop eax
+	mov esp, ebp
+	pop ebp
+	ret 8
+printResults ENDP
 
 END myMain
